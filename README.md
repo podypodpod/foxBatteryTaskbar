@@ -42,9 +42,11 @@ Settings live in `%APPDATA%\FoxBatteryTaskbar\`. Use **Open settings folder** in
 
 - **BaseUrl**: `https://www.foxesscloud.com` (Europe/default) or `https://portal.foxesscloud.us` (US).
 - **DeviceSerial**: your inverter serial number. If it's empty, the app uses the first device on your account.
-- **PollMinutes**: how often to refresh. Fox Cloud data only updates every few minutes and the API has a daily call limit, so keep this ≥ 2.
+- **PollMinutes**: how often to refresh. Values are clamped to 2–1440, because Fox Cloud data only updates every few minutes and the API has a daily call limit.
 
-You can also supply the key with the `FOXESS_API_KEY` environment variable, which takes priority over the stored key.
+You can also supply the key with the `FOXESS_API_KEY` environment variable. It takes priority over the stored key, and the app warns you if you enter a key in the dialog while it's set.
+
+If something goes wrong (network down, Fox Cloud error, unexpected response), the icon shows a red `!` with the reason in its tooltip, and the app retries on the next poll.
 
 ## Build from source
 

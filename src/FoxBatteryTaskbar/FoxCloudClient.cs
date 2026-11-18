@@ -36,26 +36,14 @@ public sealed class FoxCloudClient(HttpClient http, string baseUrl, string apiKe
     public async Task<string> GetFirstDeviceSerialAsync(CancellationToken ct = default)
     {
         var result = await PostAsync("/op/v0/device/list", new { currentPage = 1, pageSize = 10 }, ct);
-        var devices = result?["data"]?.AsArray();
-        var sn = devices?.FirstOrDefault()?["deviceSN"]?.GetValue<string>();
+        var sn = ParseShape(() => result?["data"]?.AsArray().FirstOrDefault()?["deviceSN"]?.GetValue<string>());
         return sn ?? throw new FoxCloudException("No devices found on this Fox Cloud account.");
     }
 
     public async Task<BatteryReading> GetReadingAsync(string serial, CancellationToken ct = default)
     {
         var result = await PostAsync("/op/v0/device/real/query", new { sn = serial, variables = Variables }, ct);
-        var datas = result?.AsArray().FirstOrDefault()?["datas"]?.AsArray()
-            ?? throw new FoxCloudException("Unexpected response from Fox Cloud.");
-
-        var values = new Dictionary<string, double>();
-        foreach (var d in datas)
-        {
-            var name = d?["variable"]?.GetValue<string>();
-            var value = d?["value"];
-            if (name is null || value is null) continue;
-            if (double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
-                values[name] = v;
-        }
+        var values = ParseShape(() => ParseValues(result));
 
         if (!values.TryGetValue("SoC", out var soc))
             throw new FoxCloudException("Fox Cloud did not return a state of charge.");
@@ -66,6 +54,23 @@ public sealed class FoxCloudClient(HttpClient http, string baseUrl, string apiKe
             Get("gridConsumptionPower"), Get("feedinPower"),
             values.TryGetValue("batTemperature", out var t) ? t : null,
             DateTimeOffset.Now);
+    }
+
+    static Dictionary<string, double> ParseValues(JsonNode? result)
+    {
+        var datas = result?.AsArray().FirstOrDefault()?["datas"]?.AsArray()
+            ?? throw new FoxCloudException("Unexpected response from Fox Cloud.");
+
+        var values = new Dictionary<string, double>();
+        foreach (var d in datas)
+        {
+            var name = d?["variable"]?.ToString();
+            var value = d?["value"];
+            if (name is null || value is null) continue;
+            if (double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
+                values[name] = v;
+        }
+        return values;
     }
 
     async Task<JsonNode?> PostAsync(string path, object body, CancellationToken ct)
@@ -80,16 +85,45 @@ public sealed class FoxCloudClient(HttpClient http, string baseUrl, string apiKe
         request.Headers.Add("timestamp", timestamp);
         request.Headers.Add("signature", Sign(path, apiKey, timestamp));
         request.Headers.Add("lang", "en");
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("FoxBatteryTaskbar", "0.1"));
+        request.Headers.UserAgent.Add(UserAgent);
 
         using var response = await http.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
-        var json = JsonNode.Parse(await response.Content.ReadAsStringAsync(ct));
+        var text = await response.Content.ReadAsStringAsync(ct);
 
-        var errno = json?["errno"]?.GetValue<int>() ?? -1;
+        JsonNode? json;
+        try
+        {
+            json = JsonNode.Parse(text);
+        }
+        catch (JsonException)
+        {
+            // e.g. an HTML maintenance page served with 200 OK
+            throw new FoxCloudException("Fox Cloud returned a response that isn't JSON.");
+        }
+
+        var errnoNode = json?["errno"];
+        var errno = errnoNode is not null && int.TryParse(errnoNode.ToString(), out var n) ? n : -1;
         if (errno != 0)
             throw new FoxCloudException($"Fox Cloud error {errno}: {json?["msg"]}");
         return json?["result"];
+    }
+
+    static readonly ProductInfoHeaderValue UserAgent = new(
+        "FoxBatteryTaskbar",
+        typeof(FoxCloudClient).Assembly.GetName().Version?.ToString(3) ?? "0.0.0");
+
+    /// <summary>Navigating a JSON shape we didn't expect throws InvalidOperationException; report it as an API problem.</summary>
+    static T ParseShape<T>(Func<T> parse)
+    {
+        try
+        {
+            return parse();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException)
+        {
+            throw new FoxCloudException("Unexpected response from Fox Cloud.");
+        }
     }
 
     /// <summary>

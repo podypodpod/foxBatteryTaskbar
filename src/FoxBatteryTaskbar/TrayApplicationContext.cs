@@ -17,6 +17,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     readonly ToolStripMenuItem startupItem;
     readonly AppSettings settings = AppSettings.Load();
     Icon? currentIcon;
+    Func<Icon> renderCurrent = () => TrayIconRenderer.Render("…", TrayIconRenderer.Neutral);
     bool refreshing;
 
     public TrayApplicationContext()
@@ -27,28 +28,32 @@ public sealed class TrayApplicationContext : ApplicationContext
         };
 
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Refresh now", null, async (_, _) => await RefreshAsync());
-        menu.Items.Add("Set API key…", null, async (_, _) => { if (PromptForApiKey()) await RefreshAsync(); });
-        menu.Items.Add("Open Fox Cloud", null, (_, _) => ApiKeyDialog.OpenUrl(settings.BaseUrl));
+        menu.Items.Add("Refresh now", null, async (_, _) => await RefreshAsync(promptIfNoKey: true));
+        menu.Items.Add("Set API key…", null, async (_, _) => { if (PromptForApiKey()) await RefreshAsync(promptIfNoKey: false); });
+        menu.Items.Add("Open Fox Cloud", null, (_, _) => Shell.Open(settings.BaseUrl));
         menu.Items.Add("Open settings folder", null, (_, _) => OpenSettingsFolder());
         menu.Items.Add(startupItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitThread());
 
         tray.ContextMenuStrip = menu;
-        tray.DoubleClick += async (_, _) => await RefreshAsync();
-        SetIcon(TrayIconRenderer.Render("…", TrayIconRenderer.Neutral));
+        tray.DoubleClick += async (_, _) => await RefreshAsync(promptIfNoKey: true);
+        SetIcon(renderCurrent);
         SetTooltip("Fox battery: loading…");
         tray.Visible = true;
 
-        timer.Interval = (int)TimeSpan.FromMinutes(Math.Max(1, settings.PollMinutes)).TotalMilliseconds;
-        timer.Tick += async (_, _) => await RefreshAsync();
+        // Redraw at the new size when display scaling or monitors change.
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+
+        timer.Interval = (int)TimeSpan.FromMinutes(settings.EffectivePollMinutes).TotalMilliseconds;
+        // Timer ticks never prompt: a cancelled key dialog must not reappear every few minutes.
+        timer.Tick += async (_, _) => await RefreshAsync(promptIfNoKey: false);
         timer.Start();
 
-        _ = RefreshAsync();
+        _ = RefreshAsync(promptIfNoKey: true);
     }
 
-    async Task RefreshAsync()
+    async Task RefreshAsync(bool promptIfNoKey)
     {
         if (refreshing) return;
         refreshing = true;
@@ -57,22 +62,18 @@ public sealed class TrayApplicationContext : ApplicationContext
             var apiKey = AppSettings.LoadApiKey();
             if (apiKey is null)
             {
-                ShowError("no API key set (right-click → Set API key…)");
-                if (PromptForApiKey()) apiKey = AppSettings.LoadApiKey();
+                ShowError(BatteryReader.MissingKeyMessage);
+                if (!promptIfNoKey || !PromptForApiKey()) return;
+                apiKey = AppSettings.LoadApiKey();
                 if (apiKey is null) return;
             }
 
-            var client = new FoxCloudClient(Http, settings.BaseUrl, apiKey);
-            if (string.IsNullOrWhiteSpace(settings.DeviceSerial))
-            {
-                settings.DeviceSerial = await client.GetFirstDeviceSerialAsync();
-                settings.Save();
-            }
-
-            ShowReading(await client.GetReadingAsync(settings.DeviceSerial));
+            ShowReading(await BatteryReader.ReadAsync(Http, settings, apiKey, settings.Save));
         }
-        catch (Exception ex) when (ex is FoxCloudException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex)
         {
+            // This runs from async-void UI handlers: anything that escapes would crash the app.
+            // Show it on the icon instead and try again on the next tick.
             ShowError(ex.Message);
         }
         finally
@@ -85,7 +86,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         int soc = (int)Math.Round(r.StateOfCharge);
         bool charging = r.ChargePower > 0.05;
-        SetIcon(TrayIconRenderer.Render(soc.ToString(), TrayIconRenderer.ColorFor(soc), soc, charging));
+        SetIcon(() => TrayIconRenderer.Render(soc.ToString(), TrayIconRenderer.ColorFor(soc), soc, charging));
 
         string state = charging ? $"charging {r.ChargePower:0.0}kW"
             : r.DischargePower > 0.05 ? $"using {r.DischargePower:0.0}kW"
@@ -101,16 +102,19 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     void ShowError(string message)
     {
-        SetIcon(TrayIconRenderer.Render("!", TrayIconRenderer.Bad));
+        SetIcon(() => TrayIconRenderer.Render("!", TrayIconRenderer.Bad));
         SetTooltip("Fox battery: " + message);
     }
 
-    void SetIcon(Icon icon)
+    void SetIcon(Func<Icon> render)
     {
+        renderCurrent = render;
         var old = currentIcon;
-        tray.Icon = currentIcon = icon;
+        tray.Icon = currentIcon = render();
         TrayIconRenderer.Destroy(old);
     }
+
+    void OnDisplaySettingsChanged(object? sender, EventArgs e) => SetIcon(renderCurrent);
 
     void SetTooltip(string text) =>
         tray.Text = text.Length > MaxTooltipLength ? text[..MaxTooltipLength] : text;
@@ -122,13 +126,21 @@ public sealed class TrayApplicationContext : ApplicationContext
         AppSettings.SaveApiKey(dialog.ApiKey);
         settings.DeviceSerial = null; // a new key may belong to a different account
         settings.Save();
+
+        if (AppSettings.ApiKeyFromEnvironment() is not null)
+        {
+            MessageBox.Show(
+                $"The key was saved, but the {AppSettings.ApiKeyEnvironmentVariable} environment variable is set " +
+                "and takes priority. Remove that variable to use the key you just entered.",
+                "Fox Battery Taskbar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
         return true;
     }
 
     static void OpenSettingsFolder()
     {
         Directory.CreateDirectory(AppSettings.Directory);
-        ApiKeyDialog.OpenUrl(AppSettings.Directory);
+        Shell.Open(AppSettings.Directory);
     }
 
     static bool IsStartupEnabled()
@@ -147,6 +159,7 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         timer.Dispose();
         tray.Visible = false;
         tray.Dispose();

@@ -23,6 +23,25 @@ public sealed class AppSettingsTests : IDisposable
         Assert.Equal(5, AppSettings.LoadFrom(SettingsFile).PollMinutes);
     }
 
+    [Theory]
+    [InlineData(-5, AppSettings.MinPollMinutes)]
+    [InlineData(0, AppSettings.MinPollMinutes)]
+    [InlineData(1, AppSettings.MinPollMinutes)]
+    [InlineData(5, 5)]
+    [InlineData(50_000, AppSettings.MaxPollMinutes)]
+    [InlineData(int.MaxValue, AppSettings.MaxPollMinutes)]
+    public void EffectivePollMinutes_is_clamped(int configured, int expected)
+    {
+        Assert.Equal(expected, new AppSettings { PollMinutes = configured }.EffectivePollMinutes);
+    }
+
+    [Fact]
+    public void Max_poll_interval_fits_a_timer()
+    {
+        // Timer.Interval is an int of milliseconds; the clamp must keep the cast from overflowing.
+        Assert.True(TimeSpan.FromMinutes(AppSettings.MaxPollMinutes).TotalMilliseconds < int.MaxValue);
+    }
+
     [Fact]
     public void Values_are_read_from_file()
     {

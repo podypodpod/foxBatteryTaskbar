@@ -29,6 +29,13 @@ public sealed class AppSettings
     /// <summary>How often to poll Fox Cloud. Fox data only updates every few minutes and the API is rate limited.</summary>
     public int PollMinutes { get; set; } = 5;
 
+    public const int MinPollMinutes = 2;
+    public const int MaxPollMinutes = 24 * 60;
+
+    /// <summary><see cref="PollMinutes"/> clamped to a safe range, whatever is in settings.json.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int EffectivePollMinutes => Math.Clamp(PollMinutes, MinPollMinutes, MaxPollMinutes);
+
     public static AppSettings Load() => LoadFrom(SettingsPath);
 
     internal static AppSettings LoadFrom(string path)
@@ -54,18 +61,24 @@ public sealed class AppSettings
     /// <summary>API key from the FOXESS_API_KEY environment variable, else the encrypted key file.</summary>
     public static string? LoadApiKey()
     {
-        var env = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
-        if (!string.IsNullOrWhiteSpace(env)) return env.Trim();
+        var env = ApiKeyFromEnvironment();
+        if (env is not null) return env;
         if (!File.Exists(KeyPath)) return null;
         try
         {
             var bytes = ProtectedData.Unprotect(File.ReadAllBytes(KeyPath), null, DataProtectionScope.CurrentUser);
             return Encoding.UTF8.GetString(bytes);
         }
-        catch (CryptographicException)
+        catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException)
         {
             return null;
         }
+    }
+
+    public static string? ApiKeyFromEnvironment()
+    {
+        var env = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(env) ? null : env.Trim();
     }
 
     public static void SaveApiKey(string apiKey)

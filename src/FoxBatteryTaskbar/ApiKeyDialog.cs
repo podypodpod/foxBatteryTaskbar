@@ -24,7 +24,7 @@ public sealed class ApiKeyDialog : Form
             MaximumSize = new Size(360, 0),
         };
         help.LinkArea = new LinkArea(help.Text.IndexOf("foxesscloud.com", StringComparison.Ordinal), "foxesscloud.com".Length);
-        help.LinkClicked += (_, _) => OpenUrl("https://www.foxesscloud.com/login");
+        help.LinkClicked += (_, _) => Shell.Open("https://www.foxesscloud.com/login");
 
         var show = new CheckBox { Text = "Show key", AutoSize = true };
         show.CheckedChanged += (_, _) => keyBox.UseSystemPasswordChar = !show.Checked;
@@ -54,7 +54,4 @@ public sealed class ApiKeyDialog : Form
         if (dlg.ShowDialog(this) == DialogResult.OK)
             keyBox.Text = File.ReadAllText(dlg.FileName).Trim();
     }
-
-    internal static void OpenUrl(string url) =>
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
 }

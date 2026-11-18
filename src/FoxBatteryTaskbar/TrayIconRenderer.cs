@@ -19,8 +19,7 @@ public static partial class TrayIconRenderer
     /// </summary>
     public static Icon Render(string text, Color color, int? fillPercent = null, bool charging = false)
     {
-        var size = SystemInformation.SmallIconSize;
-        int w = Math.Max(16, size.Width), h = Math.Max(16, size.Height);
+        int w = TrayIconSize(), h = w;
 
         using var bmp = new Bitmap(w, h);
         using (var g = Graphics.FromImage(bmp))
@@ -53,7 +52,7 @@ public static partial class TrayIconRenderer
 
     static void DrawFittedText(Graphics g, string text, Color color, RectangleF area)
     {
-        var family = text.Length >= 3 ? "Arial Narrow" : "Segoe UI";
+        var family = text.Length >= 3 ? NarrowFontFamily : "Segoe UI";
         var format = StringFormat.GenericTypographic;
         for (float px = area.Height; px > 5; px -= 0.5f)
         {
@@ -75,6 +74,43 @@ public static partial class TrayIconRenderer
         icon.Dispose();
         DestroyIcon(handle);
     }
+
+    /// <summary>
+    /// A condensed font so "100" stays legible. Bahnschrift ships with Windows 10 1709+;
+    /// fall back to Segoe UI (always present) rather than letting GDI+ substitute a wide font.
+    /// </summary>
+    internal static readonly string NarrowFontFamily = PickInstalled("Bahnschrift SemiBold Condensed", "Bahnschrift Condensed", "Segoe UI");
+
+    internal static string PickInstalled(params string[] candidates)
+    {
+        using var installed = new InstalledFontCollection();
+        var names = installed.Families.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return candidates.FirstOrDefault(names.Contains) ?? candidates[^1];
+    }
+
+    /// <summary>Small-icon size at the DPI of the monitor showing the taskbar (not just the system DPI at startup).</summary>
+    internal static int TrayIconSize()
+    {
+        const int SM_CXSMICON = 49;
+        uint dpi = 0;
+        var taskbar = FindWindowW("Shell_TrayWnd", null);
+        if (taskbar != IntPtr.Zero) dpi = GetDpiForWindow(taskbar);
+        if (dpi == 0) dpi = GetDpiForSystem();
+        int size = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+        return Math.Max(16, size > 0 ? size : SystemInformation.SmallIconSize.Width);
+    }
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial IntPtr FindWindowW(string className, string? windowName);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetDpiForWindow(IntPtr hwnd);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetDpiForSystem();
+
+    [LibraryImport("user32.dll")]
+    private static partial int GetSystemMetricsForDpi(int index, uint dpi);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

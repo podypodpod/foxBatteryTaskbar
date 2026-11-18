@@ -29,12 +29,10 @@ static partial class Program
         try
         {
             var settings = AppSettings.Load();
-            var key = AppSettings.LoadApiKey()
-                ?? throw new FoxCloudException($"No API key. Set {AppSettings.ApiKeyEnvironmentVariable} or use 'Set API key…' in the tray menu.");
+            var key = AppSettings.LoadApiKey() ?? throw new FoxCloudException(BatteryReader.MissingKeyMessage);
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            var client = new FoxCloudClient(http, settings.BaseUrl, key);
-            var sn = string.IsNullOrWhiteSpace(settings.DeviceSerial) ? await client.GetFirstDeviceSerialAsync() : settings.DeviceSerial;
-            Console.WriteLine(await client.GetReadingAsync(sn));
+            // Same path as the tray app; the discovered serial isn't saved, so --test has no side effects.
+            Console.WriteLine(await BatteryReader.ReadAsync(http, settings, key));
             return 0;
         }
         catch (Exception ex)

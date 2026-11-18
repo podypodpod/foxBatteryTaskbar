@@ -22,6 +22,25 @@ public class TrayIconRendererTests
         Assert.Equal(colour, TrayIconRenderer.ColorFor(percent));
     }
 
+    [Fact]
+    public void PickInstalled_falls_back_to_last_candidate_when_none_installed()
+    {
+        Assert.Equal("Segoe UI", TrayIconRenderer.PickInstalled("No Such Font 123", "Segoe UI"));
+    }
+
+    [Fact]
+    public void Narrow_font_is_a_font_that_is_actually_installed()
+    {
+        Assert.Equal(TrayIconRenderer.NarrowFontFamily, TrayIconRenderer.PickInstalled(TrayIconRenderer.NarrowFontFamily, "Segoe UI"));
+        Assert.NotEqual("Arial Narrow", TrayIconRenderer.NarrowFontFamily);
+    }
+
+    [Fact]
+    public void TrayIconSize_is_at_least_16px()
+    {
+        Assert.True(TrayIconRenderer.TrayIconSize() >= 16);
+    }
+
     [Theory]
     [InlineData("7")]
     [InlineData("79")]

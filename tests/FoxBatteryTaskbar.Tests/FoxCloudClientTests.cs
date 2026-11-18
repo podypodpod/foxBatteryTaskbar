@@ -93,6 +93,49 @@ public class FoxCloudClientTests
     }
 
     [Fact]
+    public async Task Non_json_response_becomes_FoxCloudException()
+    {
+        var handler = FakeHttpHandler.Json("<html>Down for maintenance</html>");
+        await Assert.ThrowsAsync<FoxCloudException>(() => Client(handler).GetReadingAsync("SN"));
+    }
+
+    [Theory]
+    [InlineData("""{"errno":0,"result":{"datas":[]}}""")]          // object instead of array
+    [InlineData("""{"errno":0,"result":[{"datas":{"SoC":1}}]}""")] // datas not an array
+    [InlineData("""{"errno":0,"result":"oops"}""")]
+    public async Task Unexpected_json_shape_becomes_FoxCloudException(string json)
+    {
+        await Assert.ThrowsAsync<FoxCloudException>(() => Client(FakeHttpHandler.Json(json)).GetReadingAsync("SN"));
+    }
+
+    [Fact]
+    public async Task Errno_sent_as_string_is_understood()
+    {
+        const string json = """{"errno":"0","result":[{"datas":[{"variable":"SoC","value":55}]}]}""";
+        var r = await Client(FakeHttpHandler.Json(json)).GetReadingAsync("SN");
+        Assert.Equal(55, r.StateOfCharge);
+    }
+
+    [Fact]
+    public async Task Unexpected_device_list_shape_becomes_FoxCloudException()
+    {
+        const string json = """{"errno":0,"result":{"data":{"deviceSN":"x"}}}""";
+        await Assert.ThrowsAsync<FoxCloudException>(() => Client(FakeHttpHandler.Json(json)).GetFirstDeviceSerialAsync());
+    }
+
+    [Fact]
+    public async Task User_agent_carries_assembly_version()
+    {
+        var handler = FakeHttpHandler.Sample("real-query.json");
+        await Client(handler).GetReadingAsync("SN");
+
+        var expected = typeof(FoxCloudClient).Assembly.GetName().Version!.ToString(3);
+        var product = Assert.Single(handler.Requests[0].Request.Headers.UserAgent).Product!;
+        Assert.Equal("FoxBatteryTaskbar", product.Name);
+        Assert.Equal(expected, product.Version);
+    }
+
+    [Fact]
     public async Task Http_failure_throws_HttpRequestException()
     {
         var handler = FakeHttpHandler.Json("{}", HttpStatusCode.InternalServerError);
