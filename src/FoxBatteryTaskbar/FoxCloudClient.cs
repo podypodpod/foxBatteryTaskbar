@@ -113,9 +113,7 @@ public sealed class FoxCloudClient(HttpClient http, string baseUrl, string apiKe
         return json?["result"];
     }
 
-    static readonly ProductInfoHeaderValue UserAgent = new(
-        "FoxBatteryTaskbar",
-        typeof(FoxCloudClient).Assembly.GetName().Version?.ToString(3) ?? "0.0.0");
+    static readonly ProductInfoHeaderValue UserAgent = new("FoxBatteryTaskbar", AppInfo.Version);
 
     /// <summary>Navigating a JSON shape we didn't expect throws InvalidOperationException; report it as an API problem.</summary>
     static T ParseShape<T>(Func<T> parse)

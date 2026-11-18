@@ -7,17 +7,10 @@ namespace FoxBatteryTaskbar;
 /// <summary>Draws the tray icon: the percentage as text, a fill bar, and a charging marker.</summary>
 public static partial class TrayIconRenderer
 {
-    public static readonly Color Good = Color.FromArgb(80, 220, 100);
-    public static readonly Color Warn = Color.FromArgb(255, 190, 40);
-    public static readonly Color Bad = Color.FromArgb(255, 80, 70);
-    public static readonly Color Neutral = Color.Gray;
-
-    public static Color ColorFor(int percent) => percent >= 50 ? Good : percent >= 20 ? Warn : Bad;
-
     /// <summary>
     /// Renders an icon. The caller owns the returned icon and must dispose it with <see cref="Destroy"/>.
     /// </summary>
-    public static Icon Render(string text, Color color, int? fillPercent = null, bool charging = false)
+    public static Icon Render(string text, Color color, TrayPalette palette, int? fillPercent = null, bool charging = false)
     {
         int w = TrayIconSize(), h = w;
 
@@ -31,7 +24,7 @@ public static partial class TrayIconRenderer
             int barHeight = Math.Max(2, h / 8);
             if (fillPercent is int pct)
             {
-                using var track = new SolidBrush(Color.FromArgb(90, 255, 255, 255));
+                using var track = new SolidBrush(palette.Track);
                 using var fill = new SolidBrush(color);
                 g.FillRectangle(track, 0, h - barHeight, w, barHeight);
                 g.FillRectangle(fill, 0, h - barHeight, Math.Max(1, w * Math.Clamp(pct, 0, 100) / 100), barHeight);
@@ -42,7 +35,7 @@ public static partial class TrayIconRenderer
             if (charging)
             {
                 int a = w / 3;
-                using var brush = new SolidBrush(Good);
+                using var brush = new SolidBrush(palette.Good);
                 g.FillPolygon(brush, [new Point(w - a / 2 - 1, 0), new Point(w - 1, a / 2 + 1), new Point(w - a, a / 2 + 1)]);
             }
         }

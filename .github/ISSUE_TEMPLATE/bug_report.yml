@@ -1,0 +1,43 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste your API key** or full inverter serial number here.
+        For security issues, use **Security → Report a vulnerability** instead.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown at the top of the tray icon's right-click menu.
+      placeholder: "0.1.1"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Run `winver`.
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: input
+    id: inverter
+    attributes:
+      label: Inverter model
+      placeholder: "EVO 10-10-H"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the icon's tooltip text if it shows a red `!`.
+    validations:
+      required: true
+  - type: textarea
+    id: test-output
+    attributes:
+      label: Output of `FoxBatteryTaskbar.exe --test`
+      description: Run it from a terminal. Remove any serial numbers before pasting.
+      render: text

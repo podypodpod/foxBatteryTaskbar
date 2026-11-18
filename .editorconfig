@@ -8,6 +8,12 @@ indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
 
+[*.cs]
+# Enforced at build time (EnforceCodeStyleInBuild in Directory.Build.props)
+dotnet_diagnostic.IDE0005.severity = warning   # unnecessary using
+dotnet_diagnostic.IDE0161.severity = warning   # use file-scoped namespace
+csharp_style_namespace_declarations = file_scoped:warning
+
 [*.{json,yml,yaml,csproj,props}]
 indent_size = 2
 

@@ -7,17 +7,21 @@ public sealed class TrayApplicationContext : ApplicationContext
 {
     const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string RunValueName = "FoxBatteryTaskbar";
-    // NotifyIcon.Text throws if too long (63 chars on older .NET); stay safely under that.
-    const int MaxTooltipLength = 63;
+
+    /// <summary>After waking from sleep, wait for the network before refreshing.</summary>
+    static readonly TimeSpan ResumeDelay = TimeSpan.FromSeconds(15);
 
     static readonly HttpClient Http = BatteryReader.CreateHttpClient();
 
     readonly NotifyIcon tray = new();
-    readonly System.Windows.Forms.Timer timer = new();
+    readonly System.Windows.Forms.Timer pollTimer = new();
+    readonly System.Windows.Forms.Timer resumeTimer = new();
     readonly ToolStripMenuItem startupItem;
     readonly AppSettings settings = AppSettings.Load();
+    TrayPalette palette = TrayPalette.ForCurrentTheme();
     Icon? currentIcon;
-    Func<Icon> renderCurrent = () => TrayIconRenderer.Render("…", TrayIconRenderer.Neutral);
+    Func<TrayPalette, Icon> renderCurrent = p => TrayIconRenderer.Render("…", p.Stale, p);
+    BatteryReading? lastReading;
     bool refreshing;
 
     public TrayApplicationContext()
@@ -28,27 +32,36 @@ public sealed class TrayApplicationContext : ApplicationContext
         };
 
         var menu = new ContextMenuStrip();
+        menu.Items.Add(new ToolStripMenuItem($"Fox Battery Taskbar {AppInfo.Version}") { Enabled = false });
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Refresh now", null, async (_, _) => await RefreshAsync(promptIfNoKey: true));
         menu.Items.Add("Set API key…", null, async (_, _) => { if (PromptForApiKey()) await RefreshAsync(promptIfNoKey: false); });
         menu.Items.Add("Open Fox Cloud", null, (_, _) => Shell.Open(settings.EffectiveBaseUrl)); // validated https Fox URL only
         menu.Items.Add("Open settings folder", null, (_, _) => OpenSettingsFolder());
         menu.Items.Add(startupItem);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("About / check for updates", null, (_, _) => Shell.Open(AppInfo.ReleasesUrl));
         menu.Items.Add("Exit", null, (_, _) => ExitThread());
 
         tray.ContextMenuStrip = menu;
         tray.DoubleClick += async (_, _) => await RefreshAsync(promptIfNoKey: true);
         SetIcon(renderCurrent);
-        SetTooltip("Fox battery: loading…");
+        tray.Text = TrayText.Fit("Fox battery: loading…");
         tray.Visible = true;
 
-        // Redraw at the new size when display scaling or monitors change.
+        // Redraw at the new size when display scaling changes, and in new colours when the theme changes.
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        // After sleep the shown value is old: mark it stale, then refresh once the network is back.
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
 
-        timer.Interval = (int)TimeSpan.FromMinutes(settings.EffectivePollMinutes).TotalMilliseconds;
+        resumeTimer.Interval = (int)ResumeDelay.TotalMilliseconds;
+        resumeTimer.Tick += async (_, _) => { resumeTimer.Stop(); await RefreshAsync(promptIfNoKey: false); };
+
+        pollTimer.Interval = (int)TimeSpan.FromMinutes(settings.EffectivePollMinutes).TotalMilliseconds;
         // Timer ticks never prompt: a cancelled key dialog must not reappear every few minutes.
-        timer.Tick += async (_, _) => await RefreshAsync(promptIfNoKey: false);
-        timer.Start();
+        pollTimer.Tick += async (_, _) => await RefreshAsync(promptIfNoKey: false);
+        pollTimer.Start();
 
         _ = RefreshAsync(promptIfNoKey: true);
     }
@@ -82,42 +95,47 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    void ShowReading(BatteryReading r)
+    void ShowReading(BatteryReading r, bool stale = false)
     {
+        lastReading = r;
         int soc = (int)Math.Round(r.StateOfCharge);
-        bool charging = r.ChargePower > 0.05;
-        SetIcon(() => TrayIconRenderer.Render(soc.ToString(), TrayIconRenderer.ColorFor(soc), soc, charging));
-
-        string state = charging ? $"charging {r.ChargePower:0.0}kW"
-            : r.DischargePower > 0.05 ? $"using {r.DischargePower:0.0}kW"
-            : "idle";
-        // Grid: + importing, - exporting
-        double grid = r.GridExportPower > 0.05 ? -r.GridExportPower : r.GridImportPower;
-
-        SetTooltip(
-            $"{soc}% {state}\n" +
-            $"Solar {r.SolarPower:0.0} House {r.HousePower:0.0} Grid {grid:+0.0;-0.0;0.0}kW\n" +
-            $"@{r.FetchedAt:HH:mm}");
+        bool charging = !stale && TrayText.IsCharging(r);
+        SetIcon(p => TrayIconRenderer.Render(soc.ToString(), stale ? p.Stale : p.ColorFor(soc), p, soc, charging));
+        tray.Text = TrayText.ForReading(r, stale);
     }
 
     void ShowError(string message)
     {
-        SetIcon(() => TrayIconRenderer.Render("!", TrayIconRenderer.Bad));
-        SetTooltip("Fox battery: " + message);
+        SetIcon(p => TrayIconRenderer.Render("!", p.Bad, p));
+        tray.Text = TrayText.ForError(message);
     }
 
-    void SetIcon(Func<Icon> render)
+    void SetIcon(Func<TrayPalette, Icon> render)
     {
         renderCurrent = render;
         var old = currentIcon;
-        tray.Icon = currentIcon = render();
+        tray.Icon = currentIcon = render(palette);
         TrayIconRenderer.Destroy(old);
     }
 
     void OnDisplaySettingsChanged(object? sender, EventArgs e) => SetIcon(renderCurrent);
 
-    void SetTooltip(string text) =>
-        tray.Text = text.Length > MaxTooltipLength ? text[..MaxTooltipLength] : text;
+    void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category != UserPreferenceCategory.General) return; // light/dark switches raise General
+        var updated = TrayPalette.ForCurrentTheme();
+        if (updated == palette) return;
+        palette = updated;
+        SetIcon(renderCurrent);
+    }
+
+    void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode != PowerModes.Resume) return;
+        if (lastReading is not null) ShowReading(lastReading, stale: true);
+        resumeTimer.Stop();
+        resumeTimer.Start();
+    }
 
     bool PromptForApiKey()
     {
@@ -159,8 +177,12 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        // SystemEvents are static: unsubscribe or they keep this object alive.
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
-        timer.Dispose();
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        pollTimer.Dispose();
+        resumeTimer.Dispose();
         tray.Visible = false;
         tray.Dispose();
         TrayIconRenderer.Destroy(currentIcon);

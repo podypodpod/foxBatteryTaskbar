@@ -1,20 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared settings (framework, version, warnings) live in Directory.Build.props -->
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <RootNamespace>FoxBatteryTaskbar</RootNamespace>
     <AssemblyName>FoxBatteryTaskbar</AssemblyName>
-    <Version>0.1.0</Version>
     <Product>Fox Battery Taskbar</Product>
     <Description>Shows your Fox ESS battery state of charge in the Windows taskbar.</Description>
-    <Authors>podypodpod</Authors>
-    <Copyright>Copyright (c) 2026 podypodpod</Copyright>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Needed by the LibraryImport source generator for P/Invoke -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
