@@ -136,6 +136,33 @@ public class FoxCloudClientTests
     }
 
     [Fact]
+    public async Task Refuses_to_send_key_over_http()
+    {
+        var handler = FakeHttpHandler.Sample("real-query.json");
+        var client = new FoxCloudClient(new HttpClient(handler), "http://www.foxesscloud.com", ApiKey);
+
+        await Assert.ThrowsAsync<FoxCloudException>(() => client.GetReadingAsync("SN"));
+        Assert.Empty(handler.Requests); // nothing was sent
+    }
+
+    [Fact]
+    public async Task Oversized_response_is_rejected()
+    {
+        var huge = new string(' ', BatteryReader.MaxResponseBytes + 1);
+        var handler = FakeHttpHandler.Json(huge);
+        var http = new HttpClient(handler) { MaxResponseContentBufferSize = BatteryReader.MaxResponseBytes };
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => new FoxCloudClient(http, BaseUrl, ApiKey).GetReadingAsync("SN"));
+    }
+
+    [Fact]
+    public void Shared_http_client_caps_response_size()
+    {
+        using var http = BatteryReader.CreateHttpClient();
+        Assert.Equal(BatteryReader.MaxResponseBytes, http.MaxResponseContentBufferSize);
+    }
+
+    [Fact]
     public async Task Http_failure_throws_HttpRequestException()
     {
         var handler = FakeHttpHandler.Json("{}", HttpStatusCode.InternalServerError);

@@ -10,7 +10,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     // NotifyIcon.Text throws if too long (63 chars on older .NET); stay safely under that.
     const int MaxTooltipLength = 63;
 
-    static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    static readonly HttpClient Http = BatteryReader.CreateHttpClient();
 
     readonly NotifyIcon tray = new();
     readonly System.Windows.Forms.Timer timer = new();
@@ -30,7 +30,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         var menu = new ContextMenuStrip();
         menu.Items.Add("Refresh now", null, async (_, _) => await RefreshAsync(promptIfNoKey: true));
         menu.Items.Add("Set API key…", null, async (_, _) => { if (PromptForApiKey()) await RefreshAsync(promptIfNoKey: false); });
-        menu.Items.Add("Open Fox Cloud", null, (_, _) => Shell.Open(settings.BaseUrl));
+        menu.Items.Add("Open Fox Cloud", null, (_, _) => Shell.Open(settings.EffectiveBaseUrl)); // validated https Fox URL only
         menu.Items.Add("Open settings folder", null, (_, _) => OpenSettingsFolder());
         menu.Items.Add(startupItem);
         menu.Items.Add(new ToolStripSeparator());

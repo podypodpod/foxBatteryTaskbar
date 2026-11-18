@@ -75,6 +75,10 @@ public sealed class FoxCloudClient(HttpClient http, string baseUrl, string apiKe
 
     async Task<JsonNode?> PostAsync(string path, object body, CancellationToken ct)
     {
+        // Defence in depth: never send the API key over plain HTTP, whatever the caller passed.
+        if (!baseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            throw new FoxCloudException("Refusing to send the API key over a non-HTTPS connection.");
+
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl.TrimEnd('/') + path)

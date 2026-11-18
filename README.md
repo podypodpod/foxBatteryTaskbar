@@ -40,7 +40,7 @@ Settings live in `%APPDATA%\FoxBatteryTaskbar\`. Use **Open settings folder** in
 }
 ```
 
-- **BaseUrl**: `https://www.foxesscloud.com` (Europe/default) or `https://portal.foxesscloud.us` (US).
+- **BaseUrl**: `https://www.foxesscloud.com` (Europe/default) or `https://portal.foxesscloud.us` (US). For safety, any other value is ignored and the default is used. See [SECURITY.md](SECURITY.md).
 - **DeviceSerial**: your inverter serial number. If it's empty, the app uses the first device on your account.
 - **PollMinutes**: how often to refresh. Values are clamped to 2–1440, because Fox Cloud data only updates every few minutes and the API has a daily call limit.
 
@@ -81,6 +81,10 @@ Pushing a tag such as `v0.1.0` builds the exe and attaches it to a GitHub releas
 - [`FoxCloudClient.cs`](src/FoxBatteryTaskbar/FoxCloudClient.cs) calls `POST /op/v0/device/real/query`. Each request is signed with `md5(path + "\r\n" + apiKey + "\r\n" + timestampMs)`, where `\r\n` is the literal four characters, as Fox's docs specify.
 - [`TrayIconRenderer.cs`](src/FoxBatteryTaskbar/TrayIconRenderer.cs) draws the icon at the system tray size, so it stays sharp on high-DPI screens.
 - [`TrayApplicationContext.cs`](src/FoxBatteryTaskbar/TrayApplicationContext.cs) handles the tray icon, menu, polling and the "Start with Windows" `HKCU\...\Run` entry.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for how the API key is stored and sent, how to verify a download, and how to report a vulnerability.
 
 ## Licence
 

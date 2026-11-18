@@ -42,6 +42,38 @@ public sealed class AppSettingsTests : IDisposable
         Assert.True(TimeSpan.FromMinutes(AppSettings.MaxPollMinutes).TotalMilliseconds < int.MaxValue);
     }
 
+    [Theory]
+    [InlineData("https://www.foxesscloud.com", "https://www.foxesscloud.com")]
+    [InlineData("https://www.foxesscloud.com/", "https://www.foxesscloud.com")]
+    [InlineData("https://portal.foxesscloud.us", "https://portal.foxesscloud.us")]
+    [InlineData("HTTPS://WWW.FOXESSCLOUD.COM", "https://www.foxesscloud.com")]
+    [InlineData("  https://portal.foxesscloud.us  ", "https://portal.foxesscloud.us")]
+    public void Allowed_base_urls_are_used(string configured, string expected)
+    {
+        var s = new AppSettings { BaseUrl = configured };
+        Assert.True(s.BaseUrlIsValid);
+        Assert.Equal(expected, s.EffectiveBaseUrl);
+    }
+
+    [Theory]
+    [InlineData("http://www.foxesscloud.com")]            // not https: key would go in cleartext
+    [InlineData("https://attacker.example")]               // other host
+    [InlineData("https://www.foxesscloud.com.evil.com")]   // look-alike suffix
+    [InlineData("https://evil.com/www.foxesscloud.com")]   // host in path
+    [InlineData("https://user:pw@www.foxesscloud.com")]    // credentials in URL
+    [InlineData("https://www.foxesscloud.com:8443")]       // non-default port
+    [InlineData(@"C:\Windows\System32\calc.exe")]          // would be launched by "Open Fox Cloud"
+    [InlineData("file:///C:/Windows/System32/calc.exe")]
+    [InlineData("ms-msdt:/id PCWDiagnostic")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Disallowed_base_urls_fall_back_to_default(string? configured)
+    {
+        var s = new AppSettings { BaseUrl = configured! };
+        Assert.False(s.BaseUrlIsValid);
+        Assert.Equal(AppSettings.DefaultBaseUrl, s.EffectiveBaseUrl);
+    }
+
     [Fact]
     public void Values_are_read_from_file()
     {

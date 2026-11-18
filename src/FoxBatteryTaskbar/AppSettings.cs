@@ -20,8 +20,32 @@ public sealed class AppSettings
 
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    public const string DefaultBaseUrl = "https://www.foxesscloud.com";
+
+    /// <summary>
+    /// The only hosts the API key may be sent to (and that "Open Fox Cloud" may launch).
+    /// Anything else in settings.json — another host, http://, a file path — is ignored.
+    /// </summary>
+    public static readonly IReadOnlySet<string> AllowedHosts =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "www.foxesscloud.com", "portal.foxesscloud.us" };
+
     /// <summary>Fox Cloud base URL. Europe: https://www.foxesscloud.com, US: https://portal.foxesscloud.us</summary>
-    public string BaseUrl { get; set; } = "https://www.foxesscloud.com";
+    public string BaseUrl { get; set; } = DefaultBaseUrl;
+
+    /// <summary><see cref="BaseUrl"/> if it is https on an allowed Fox host, otherwise the default.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string EffectiveBaseUrl => TryNormalizeBaseUrl(BaseUrl) ?? DefaultBaseUrl;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool BaseUrlIsValid => TryNormalizeBaseUrl(BaseUrl) is not null;
+
+    internal static string? TryNormalizeBaseUrl(string? value)
+    {
+        if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri)) return null;
+        if (uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || !string.IsNullOrEmpty(uri.UserInfo)) return null;
+        if (!AllowedHosts.Contains(uri.IdnHost)) return null;
+        return $"https://{uri.IdnHost.ToLowerInvariant()}";
+    }
 
     /// <summary>Inverter serial number. Left empty, the first device on the account is used.</summary>
     public string? DeviceSerial { get; set; }

@@ -30,7 +30,9 @@ static partial class Program
         {
             var settings = AppSettings.Load();
             var key = AppSettings.LoadApiKey() ?? throw new FoxCloudException(BatteryReader.MissingKeyMessage);
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            using var http = BatteryReader.CreateHttpClient();
+            if (!settings.BaseUrlIsValid)
+                Console.Error.WriteLine($"WARNING: BaseUrl '{settings.BaseUrl}' is not an allowed https Fox Cloud URL; using {settings.EffectiveBaseUrl}");
             // Same path as the tray app; the discovered serial isn't saved, so --test has no side effects.
             Console.WriteLine(await BatteryReader.ReadAsync(http, settings, key));
             return 0;
