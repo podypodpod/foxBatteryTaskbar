@@ -2,7 +2,9 @@
 
 A tiny Windows tray app that shows your **Fox ESS** home battery's state of charge in the taskbar.
 
-- The icon shows the battery percentage, coloured **green** (â‰¥ 50%), **amber** (â‰¥ 20%) or **red**, with a fill bar along the bottom.
+![Tray icon showing the battery at 28% in amber, with a fill bar underneath](docs/screenshot.png)
+
+- The icon shows the battery percentage, coloured **green** (≥ 50%), **amber** (≥ 20%) or **red**, with a fill bar along the bottom.
 - A green corner marker means the battery is **charging**. `!` means something went wrong; hover for details. A **grey** number means the reading is old (for example, just after waking from sleep).
 - Colours adapt to a light or dark taskbar.
 - The tooltip shows charge/discharge power, solar, house load and grid import/export.
@@ -16,23 +18,23 @@ A tiny Windows tray app that shows your **Fox ESS** home battery's state of char
 2. Run it. On first run it asks for your **Fox Cloud API key**.
 3. Optional: right-click the icon and tick **Start with Windows**.
 
-Windows 11 hides new tray icons. To keep it visible, drag it from the `^` overflow onto the taskbar. Or go to **Settings â†’ Personalization â†’ Taskbar â†’ Other system tray icons** and switch **Fox Battery Taskbar** on.
+Windows 11 hides new tray icons. To keep it visible, drag it from the `^` overflow onto the taskbar. Or go to **Settings → Personalization → Taskbar → Other system tray icons** and switch **Fox Battery Taskbar** on.
 
 ### Updating
 
-Right-click the icon → **About / check for updates**, download the new exe, choose **Exit**, then replace the old file. Your settings and key are kept. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+Right-click the icon ? **About / check for updates**, download the new exe, choose **Exit**, then replace the old file. Your settings and key are kept. See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ### Uninstalling
 
 1. Right-click the icon and untick **Start with Windows**, then choose **Exit**.
 2. Delete the exe.
 3. Delete `%APPDATA%\FoxBatteryTaskbar` (settings and encrypted key).
-4. Optional: revoke the API key in Fox Cloud (User Profile → API Management).
+4. Optional: revoke the API key in Fox Cloud (User Profile ? API Management).
 
 ### Getting an API key
 
 1. Sign in at [foxesscloud.com](https://www.foxesscloud.com/login).
-2. Open your profile (top right) â†’ **User Profile** â†’ **API Management**.
+2. Open your profile (top right) → **User Profile** → **API Management**.
 3. Click **Generate API key** and paste it into the app.
 
 ## Configuration
@@ -54,7 +56,7 @@ Settings live in `%APPDATA%\FoxBatteryTaskbar\`. Use **Open settings folder** in
 
 - **BaseUrl**: `https://www.foxesscloud.com` (Europe/default) or `https://portal.foxesscloud.us` (US). For safety, any other value is ignored and the default is used. See [SECURITY.md](SECURITY.md).
 - **DeviceSerial**: your inverter serial number. If it's empty, the app uses the first device on your account.
-- **PollMinutes**: how often to refresh. Values are clamped to 2â€“1440, because Fox Cloud data only updates every few minutes and the API has a daily call limit.
+- **PollMinutes**: how often to refresh. Values are clamped to 2–1440, because Fox Cloud data only updates every few minutes and the API has a daily call limit.
 
 You can also supply the key with the `FOXESS_API_KEY` environment variable. It takes priority over the stored key, and the app warns you if you enter a key in the dialog while it's set.
 
