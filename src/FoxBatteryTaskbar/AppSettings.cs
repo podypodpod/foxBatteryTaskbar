@@ -29,12 +29,14 @@ public sealed class AppSettings
     /// <summary>How often to poll Fox Cloud. Fox data only updates every few minutes and the API is rate limited.</summary>
     public int PollMinutes { get; set; } = 5;
 
-    public static AppSettings Load()
+    public static AppSettings Load() => LoadFrom(SettingsPath);
+
+    internal static AppSettings LoadFrom(string path)
     {
         try
         {
-            if (File.Exists(SettingsPath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) ?? new AppSettings();
+            if (File.Exists(path))
+                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path)) ?? new AppSettings();
         }
         catch (JsonException)
         {

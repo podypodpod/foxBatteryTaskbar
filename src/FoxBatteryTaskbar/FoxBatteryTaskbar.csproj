@@ -19,4 +19,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FoxBatteryTaskbar.Tests" />
+  </ItemGroup>
+
 </Project>

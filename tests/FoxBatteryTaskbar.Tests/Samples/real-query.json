@@ -1,0 +1,20 @@
+{
+  "errno": 0,
+  "msg": "Operation successful.",
+  "result": [
+    {
+      "datas": [
+        { "unit": "%", "name": "SoC", "variable": "SoC", "value": 79.0 },
+        { "unit": "kW", "name": "Charge Power", "variable": "batChargePower", "value": 0.0 },
+        { "unit": "kW", "name": "Discharge Power", "variable": "batDischargePower", "value": 1.004 },
+        { "unit": "kW", "name": "PVPower", "variable": "pvPower", "value": 2.5 },
+        { "unit": "kW", "name": "Load Power", "variable": "loadsPower", "value": 1.028 },
+        { "unit": "kW", "name": "GridConsumption Power", "variable": "gridConsumptionPower", "value": 0.024 },
+        { "unit": "kW", "name": "Feed-in Power", "variable": "feedinPower", "value": 0.0 },
+        { "unit": "℃", "name": "batTemperature", "variable": "batTemperature", "value": 35.5 }
+      ],
+      "time": "2026-01-01 08:20:10 GMT+0000",
+      "deviceSN": "TESTSN000000001"
+    }
+  ]
+}

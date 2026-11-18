@@ -54,7 +54,13 @@ You need the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 dotnet build
 ```
 
-Run a one-off check that prints a reading to the terminal:
+Run the unit tests. They use canned responses in `tests/.../Samples`, so they need no API key or network:
+
+```bash
+dotnet test
+```
+
+Run a one-off check against your real battery, which prints a reading to the terminal:
 
 ```bash
 dotnet run --project src/FoxBatteryTaskbar -- --test

@@ -1,0 +1,20 @@
+{
+  "errno": 0,
+  "msg": "Operation successful.",
+  "result": {
+    "total": 1,
+    "currentPage": 1,
+    "pageSize": 10,
+    "data": [
+      {
+        "deviceType": "EVO 10-10-H",
+        "hasBattery": true,
+        "hasPV": true,
+        "stationName": "Test Station",
+        "deviceSN": "TESTSN000000001",
+        "moduleSN": "TESTSN000000001",
+        "status": 1
+      }
+    ]
+  }
+}
