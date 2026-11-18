@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+publish/
+artifacts/
+*.exe
+*.dll
+*.pdb
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Secrets – never commit API keys
+*.key
+apikey.txt
+apikey.bin
+*Key.txt
+.env
+
+# OS
+Thumbs.db
+Desktop.ini
