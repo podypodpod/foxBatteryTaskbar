@@ -22,14 +22,14 @@ Windows 11 hides new tray icons. To keep it visible, drag it from the `^` overfl
 
 ### Updating
 
-Right-click the icon ? **About / check for updates**, download the new exe, choose **Exit**, then replace the old file. Your settings and key are kept. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+Right-click the icon → **About / check for updates**, download the new exe, choose **Exit**, then replace the old file. Your settings and key are kept. See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ### Uninstalling
 
 1. Right-click the icon and untick **Start with Windows**, then choose **Exit**.
 2. Delete the exe.
 3. Delete `%APPDATA%\FoxBatteryTaskbar` (settings and encrypted key).
-4. Optional: revoke the API key in Fox Cloud (User Profile ? API Management).
+4. Optional: revoke the API key in Fox Cloud (User Profile → API Management).
 
 ### Getting an API key
 
